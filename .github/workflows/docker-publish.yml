@@ -127,6 +127,7 @@ jobs:
               --name token-system \
               -p 8990:8990 \
               --env-file .env \
+              -v /opt/token-system/certs:/app/certs \
               --restart unless-stopped \
               ghcr.io/${{ env.IMAGE_NAME }}:latest
 
