@@ -31,7 +31,7 @@ export async function connectDatabase(): Promise<void> {
     pool = await sql.connect(config);
     console.log('✅ Connected to SQL Server database');
     
-    // Test the connection
+    // Test the connections
     const result = await pool.request().query('SELECT GETDATE() as serverTime, DB_NAME() as databaseName');
     console.log(`📅 Connected to ${result.recordset[0].databaseName} at ${result.recordset[0].serverTime}`);
     
