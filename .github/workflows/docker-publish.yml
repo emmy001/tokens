@@ -102,7 +102,12 @@ jobs:
           
       - name: Debug SSH
         run: |
-          ssh -v ${{ secrets.SSH_USER }}@${{ secrets.PROD_HOST }}    
+          ssh -v ${{ secrets.SSH_USER }}@${{ secrets.PROD_HOST }}   
+          
+      - name: Upload certificates
+        run: |
+          scp -r certs \
+            ${{ secrets.SSH_USER }}@${{ secrets.PROD_HOST }}:/opt/token-system/     
 
       - name: Deploy to production server
         run: |
