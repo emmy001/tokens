@@ -1,0 +1,139 @@
+name: build-publish-deploy-token-system
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/token-system
+
+# --------------------------------------------------
+# 1️⃣ BUILD & PUSH IMAGE
+# --------------------------------------------------
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GH_SECRET }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ghcr.io/${{ env.IMAGE_NAME }}:latest \
+            -t ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }} .
+
+      - name: Push Docker image
+        run: |
+          docker push ghcr.io/${{ env.IMAGE_NAME }}:latest
+          docker push ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+# --------------------------------------------------
+# 2️⃣ DEPLOY TO STAGING
+# --------------------------------------------------
+  deploy-staging:
+    needs: publish
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          install -m 600 -D /dev/null ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.STAGING_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to staging
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.STAGING_HOST }} << 'EOF'
+            set -e
+
+            mkdir -p /opt/token-system
+            cd /opt/token-system
+
+            # Login to GHCR
+            echo '${{ secrets.GH_SECRET }}' | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Pull latest image
+            docker pull ghcr.io/${{ env.IMAGE_NAME }}:latest
+
+            # Stop old container
+            docker stop token-system || true
+            docker rm token-system || true
+
+            # Start new container
+            docker run -d \
+              --name token-system \
+              -p 8990:8990 \
+              --env-file .env \
+              --restart unless-stopped \
+              ghcr.io/${{ env.IMAGE_NAME }}:latest
+
+            echo "✅ Staging deployed"
+          EOF
+
+# --------------------------------------------------
+# 3️⃣ DEPLOY TO PRODUCTION
+# --------------------------------------------------
+  deploy-production:
+    needs: publish
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          install -m 600 -D /dev/null ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.PROD_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to production server
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.PROD_HOST }} << 'EOF'
+            set -e
+
+            mkdir -p /opt/token-system
+            cd /opt/token-system
+
+            # Login to GHCR
+            echo '${{ secrets.GH_SECRET }}' | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Pull latest image
+            docker pull ghcr.io/${{ env.IMAGE_NAME }}:latest
+
+            # Stop old container
+            docker stop token-system || true
+            docker rm token-system || true
+
+            # Start new container
+            docker run -d \
+              --name token-system \
+              -p 8990:8990 \
+              --env-file .env \
+              --restart unless-stopped \
+              ghcr.io/${{ env.IMAGE_NAME }}:latest
+
+            # Health check
+            echo "Checking health..."
+            sleep 10
+
+            if curl -f http://localhost:8990/health || curl -f http://localhost:8990/api/health; then
+              echo "✅ Production deployment successful"
+            else
+              echo "❌ Health check failed"
+              docker logs token-system --tail=50
+              exit 1
+            fi
+          EOF

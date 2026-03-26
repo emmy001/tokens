@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  token-system:
+    build: .
+    container_name: token-system
+    ports:
+      - "8990:8990"
+    env_file:
+      - .env
+    restart: unless-stopped
+
+    # Optional: if using MSSQL outside docker
+    environment:
+      - NODE_ENV=production
+
+    # If you later add DB in docker, you can link here
