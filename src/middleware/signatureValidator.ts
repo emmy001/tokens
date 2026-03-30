@@ -17,10 +17,17 @@ export const validateSignature = (req: Request, res: Response, next: NextFunctio
   }
 
   // Get raw body (already parsed by express.json)
-  const rawBody = JSON.stringify(req.body);
+  //const rawBody = JSON.stringify(req.body);
+
+  const rawBody = (req as any).rawBody;
+
+  console.log('Incoming raw body:', rawBody);
+  console.log('Incoming signature:', reqSignature);
   
   // Verify signature
   if (!signatureService.verifySignature(reqSignature, rawBody)) {
+    console.error('❌ Signature mismatch');
+    console.error('Body used:', rawBody);
     res.status(401).json({
       status: 'MF',
       message: 'Signature could not be verified'

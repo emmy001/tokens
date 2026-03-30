@@ -24,7 +24,14 @@ const limiter = rateLimit({
 // Middleware
 app.use(helmet());
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+//app.use(express.json({ limit: '10mb' }));
+
+app.use(express.json({
+  limit: '10mb',
+  verify: (req: any, res, buf) => {
+    req.rawBody = buf.toString(); // ✅ THIS IS THE REAL BODY
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(limiter);
 
