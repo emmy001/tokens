@@ -42,7 +42,7 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
   next();
 });
 
-// Health check endpoint
+// Health check endpoints
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ 
     status: 'OK', 
