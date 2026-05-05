@@ -123,7 +123,7 @@ jobs:
             # Pull latest image
             docker pull ghcr.io/${{ env.IMAGE_NAME }}:latest
 
-            # Stop old container
+            # Stop old containers
             docker stop token-system || true
             docker rm token-system || true
 
